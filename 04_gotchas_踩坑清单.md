@@ -81,4 +81,13 @@ AIGC:
 23. **验证性探测优先**：任何新机器先跑探测脚本（ffmpeg 能力、dll 路径、UVR5 模型名、whisper 可用性），别一上来就全流程。
 
 24. **分段渲染失败排查顺序**：命令长度（分更多段）→ 各段独立渲染验证（逐段生成 temp mp4 人工抽查）→ concat 参数一致性。
+
+## E. 本机新增验证（2026-10-22 虫儿飞测试）
+
+25. **(A 类·ffmpeg) Windows 下 `subtitles` filter 冒号转义必炸**：`fontsdir=C\:/Windows/Fonts:force_style=...` 会被 libavfilter 解析为 `No option name near /Windows/Fonts`（盘符冒号与参数分隔符冲突）。**推荐方案：SRT 转 ASS 后用 `-vf "ass=相对路径.ass"` 渲染**（相对路径无冒号；ASS 内 Style 写 `Fontname: Microsoft YaHei`），彻底规避转义。03 渲染脚本需按此改造。
+
+26. **(C 类·ASR) PyAV 版本与 faster-whisper 不兼容**：本机 Python312 的 `av` 19.0.2 移除了 `metadata_errors` 参数，faster-whisper 1.2.1 的 `decode_audio` 调用 `av.open(..., metadata_errors='ignore')` 直接 `TypeError`。**解决：降级 `av==14.2.0`**（`pip install av==14.2.0`）或换用已验证可用的解释器（《天下》tianxia_asr 曾跑通即彼时版本兼容）；跑 ASR 前先 `pip show av` 探测版本。
+
+27. **(C 类·打轴) 对齐用「段级粗定位 + 词级细化」双轨**：纯词级 difflib 在歌词堆叠/重复段（ASR 把两遍主歌合成一段）会错位，整段 diff 又会被段内噪音拉低分数、误选更干净的重复段。**正确做法**：先用段（segment）文本做局部子串匹配锁定每行所在段（允许同段多行），再在段范围内用词级时间戳细化行边界。对齐分数 <0.5 的行自动跳过，不硬塞时间轴。
+
 *（内容由AI生成，仅供参考）*
